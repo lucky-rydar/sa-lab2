@@ -13,115 +13,73 @@ namespace authorization_service.Controllers
     [ApiController]
     public class AuthorizationController : ControllerBase
     {
-        Database db_;
+        AuthorizationDomain domain;
 
         public AuthorizationController(Database db)
         {
-            db_ = db;
+            domain = new AuthorizationDomain(db);
         }
 
         [HttpPost("register")]
         public ActionResult register([FromBody] RegistrationData parameters)
         {
-            if (parameters.Email == null || parameters.Login == null || parameters.Password == null)
+            try
             {
-                return BadRequest("Invalid data");
+                if (!parameters.Email.Contains("@") || !parameters.Email.Contains("."))
+                {
+                    return BadRequest("Invalid email");
+                }
+
+                domain.register(parameters.Email, parameters.Login, parameters.Password);
+
+                return Ok();
             }
-
-            if (db_.accounts_.Exists(x => x.Email == parameters.Email))
+            catch(Exception)
             {
-                return BadRequest("Email is already registered");
+                return BadRequest();
             }
-
-            if (!parameters.Email.Contains("@") || !parameters.Email.Contains("."))
-            {
-                return BadRequest("Invalid email");
-            }
-
-            Account account = new Account()
-            {
-                Id = db_.lastAccountId,
-                Email = parameters.Email,
-                Login = parameters.Login,
-                Password = parameters.Password
-            };
-
-            db_.accounts_.Add(account);
-            db_.lastAccountId++;
-            return Ok();
         }
 
         [HttpGet("login")]
         public ActionResult login([FromBody] LoginData parameters)
         {
-            if (parameters.Login == null || parameters.Password == null)
+            try
             {
-                return BadRequest("Invalid data");
+                int id = domain.login(parameters.Login, parameters.Password);
+                return Ok(id);
             }
-
-            if (!db_.accounts_.Exists(x => x.Login == parameters.Login))
+            catch (Exception)
             {
-                return BadRequest("Login doesn't exist");
+                return BadRequest();
             }
-
-            Account account = db_.accounts_.Where(x => x.Login == parameters.Login).FirstOrDefault();
-            if (account.Password != parameters.Password)
-            {
-                return BadRequest("Invalid password");
-            }
-
-            return Ok(account.Id);
         }
 
         [HttpGet("request_reset")]
         public ActionResult requestReset([FromBody] RequestResetPasswordData parameters)
         {
-            if (parameters.Email == null || parameters.OldPassword == null)
+            try
             {
-                return BadRequest("Invalid data");
+                var id = domain.requestReset(parameters.Email, parameters.OldPassword);
+                return Ok(id);
             }
-
-            if (!db_.accounts_.Any(x => x.Email == parameters.Email))
+            catch(Exception)
             {
-                return BadRequest("Email doesn't exist");
+                return BadRequest();
             }
-
-            Account account = db_.accounts_.First(x => x.Email == parameters.Email);
-
-            if(account.Password != parameters.OldPassword)
-            {
-                return BadRequest("Invalid password");
-            }
-
-            ResetRequest resetRequest = new ResetRequest()
-            {
-                AccountId = account.Id,
-                RequestId = Guid.NewGuid().ToString()
-            };
-            db_.resetRequests_.Add(resetRequest);
-
-            return Ok(resetRequest.RequestId);
         }
 
-        [HttpGet("accept_request")]
-        public ActionResult acceptRequest([FromBody]RequestAcceptData parameters)
+        [HttpGet("accept_reset")]
+        public ActionResult acceptReset([FromBody]RequestAcceptData parameters)
         {
-            if (parameters.RequestId== null || parameters.NewPassword == null)
+            try
             {
-                return BadRequest("Invalid data");
+                domain.acceptReset(parameters.RequestId, parameters.NewPassword);
+                return Ok();
             }
-
-            if(!db_.resetRequests_.Exists(x => x.RequestId == parameters.RequestId))
+            catch(Exception)
             {
-                return BadRequest("No such request id");
+                return BadRequest();
             }
-
-            ResetRequest resetRequest = db_.resetRequests_.Where(x => x.RequestId == parameters.RequestId).FirstOrDefault();
-            Account account = db_.accounts_.Where(x => x.Id == resetRequest.AccountId).FirstOrDefault();
-            account.Password = parameters.NewPassword;
-            db_.resetRequests_.RemoveAll(x => x.RequestId == resetRequest.RequestId);
-
-            return Ok();
         }
     }
 
