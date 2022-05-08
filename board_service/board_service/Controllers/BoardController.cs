@@ -11,55 +11,67 @@ namespace board_service.Controllers
     [ApiController]
     public class BoardController : ControllerBase
     {
-        Database db_;
+        BoardDomain boardDomain_;
 
         public BoardController(Database db)
         {
-            db_ = db;
+            boardDomain_ = new BoardDomain(db);
         }
 
         [HttpPost("create")]
         public ActionResult create([FromBody] CreateParameters parameters)
         {
-            var board = new Board()
+            try
             {
-                Id = db_.lastBoardId++,
-                Name = parameters.Name,
-                OwnerId = parameters.OwnerId
-            };
-            db_.boards_.Add(board);
-            return Ok(board.Id);
+                int id = boardDomain_.create(parameters.Name, parameters.OwnerId);
+                return Ok(id);
+            }
+            catch (Exception)
+            {
+                return BadRequest(-1);
+            }
         }
 
         [HttpPost("edit")]
         public ActionResult edit([FromBody] EditParameters parameters)
         {
-            var board = db_.boards_.FirstOrDefault(b => b.Id == parameters.Id);
-            if (board == null)
+            try
+            {
+                boardDomain_.edit(parameters.Id, parameters.NewName);
+                return Ok();
+            }
+            catch(Exception)
             {
                 return BadRequest();
             }
-            board.Name = parameters.NewName;
-            return Ok();
         }
 
         [HttpPost("delete")]
         public ActionResult delete([FromBody] DeleteParameters parameters)
         {
-            var board = db_.boards_.FirstOrDefault(b => b.Id == parameters.Id);
-            if (board == null)
+            try
+            {
+                boardDomain_.delete(parameters.Id);
+                return Ok();
+            }
+            catch(Exception)
             {
                 return BadRequest();
             }
-            db_.boards_.Remove(board);
-            return Ok();
         }
 
         [HttpGet("get_boards")]
         public ActionResult getBoards([FromBody] GetBoardsParameters parameters)
         {
-            var boards = db_.boards_.Where(b => b.OwnerId == parameters.OwnerId);
-            return Ok(boards);
+            try
+            {
+                var boards = boardDomain_.getBoards(parameters.OwnerId);
+                return Ok(boards);
+            }
+            catch (Exception)
+            {
+                return BadRequest();
+            }
         }
 
         public class CreateParameters
